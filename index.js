@@ -7,8 +7,8 @@ dotenv.config();
 
 const PORT = process.env.PORT;
 
-app.use("/addUser");
+app.use("/addUser", AddUser);
 
 app.listen(PORT || 4050, () => {
-  console.log(`http://localhost:${PORT}`);
+     console.log(`http://localhost:${PORT}`);
 });
