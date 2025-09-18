@@ -1,7 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import dotenv from "dotenv";
 
 // from your Supabase project settings → API
-const SUPABASE_URL = "https://ddewkohumlqxyzdkpfyg.supabase.co";
+dotenv.config();
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_KEY;
 
 // create client
