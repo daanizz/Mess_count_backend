@@ -7,30 +7,9 @@ import { Readable } from "stream";
 const router = Router();
 const uploads = multer({ storage: multer.memoryStorage() });
 
-router.post("/student", async (req, res) => {
-     try {
-          const results = [];
-          const buffer = req.file.buffer;
-          const stream = Readable.from(buffer.toString());
-
-          stream
-               .pipe(csv())
-               .on("data", (row) => {
-                    results.push(row);
-               })
-               .on("end", async () => {
-                    try {
-                         const { data, error } = await supabase
-                              .from("users")
-                              .insert(results);
-
-                         if (error) {
-                              console.error(error);
-                              return res
-                                   .status(500)
-                                   .json({ error: "Database insert failed" });
-                         }
-                    } catch (error) {}
-               });
-     } catch (error) {}
-});
+router.post("/student", async (req, res) => {});
+// (name, email);
+// password_hash;
+// role;
+// (admission_no, student_qr);
+// hostel_id
