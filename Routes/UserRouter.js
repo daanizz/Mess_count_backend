@@ -13,3 +13,4 @@ router.post("/student", async (req, res) => {});
 // role;
 // (admission_no, student_qr);
 // hostel_id
+export default router;
