@@ -4,7 +4,10 @@ import { Router } from "express";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import QRCode from "qrcode";
-import path from "path";
+import path, { dirname } from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
+import crypto from "crypto-js";
 
 dotenv.config();
 
@@ -84,13 +87,15 @@ router.post("/login", async (req, res) => {
 
 router.post("/create", async (req, res) => {
      try {
-          const { name, email, password, role } = req.body;
+          const { name, email, password, role, admission_no, hostel_id } =
+               req.body;
           if (!name || !email || !password || !role) {
                return res.status(400).json({ message: "fill all the fields" });
           }
+          //checking existing user
           const { data: existingUser } = await supabase
                .from("users")
-               .select("id")
+               .select("user_id")
                .eq("email", email)
                .single();
 
@@ -99,10 +104,11 @@ router.post("/create", async (req, res) => {
           }
 
           const password_hash = await bcrypt.hash(password, 12);
-
-          const { error: insertError } = await supabase
+          //inserting new user
+          const { data: newUser, error: insertError } = await supabase
                .from("users")
-               .insert([{ name, email, password_hash, role }]);
+               .insert([{ name, email, password_hash, role }])
+               .select("user_id");
 
           if (insertError) {
                return res.status(500).json({
@@ -110,17 +116,121 @@ router.post("/create", async (req, res) => {
                     details: insertError.message,
                });
           }
-          const qrcodesDir = path.join(__dirname, "..", "qrcodes");
-          const fileName = `${email}` + ".svg";
-          const qrPath = `/qrcodes/${fileName}`;
-
-          QRCode.toFile();
+          // const fileName = `${email}` + ".svg";
+          // const qrPath = path.join("qrcodes/", fileName);
+          // const userId = newUser[0].user_id;
+          // (await QRCode.toFile(qrPath, String(userId), {
+          //      type: "svg",
+          // }),
+          //      function (error) {
+          //           if (error) throw error;
+          //           console.log("file created");
+          //      });
+          //adding student user
+          const { data: newStudent, error: Error } = await supabase
+               .from("students")
+               .insert([
+                    {
+                         user_id: userId,
+                         hostel_id: hostel_id,
+                         admission_no: admission_no,
+                         // student_qr: qrPath,
+                    },
+               ]);
+          if (Error) {
+               return res.status(404).json({ message: Error });
+          }
 
           return res.status(201).json({ message: "User created successfully" });
      } catch (error) {
           return res
                .status(500)
                .json({ message: "User creation failed", error: error.message });
+     }
+});
+
+// router.post("/addCount", async (req, res) => {
+//      const { qrCode, hostle } = req.body;
+//      if (!userId) {
+//           return res
+//                .status(400)
+//                .json({ message: "couldnt get the credentials,pls try again" });
+//      }
+// });
+
+router.post("/getQrCode", async (req, res) => {
+     try {
+          const { user_id, hostel_id } = req.body;
+          if (!user_id || !hostel_id) {
+               return res.status(400).json({ message: "bad request" });
+          }
+          const { data: user, error: userError } = await supabase
+               .from("students")
+               .select("user_id")
+               .eq("user_id", user_id)
+               .maybeSingle();
+          if (userError || !user) {
+               console.log("error");
+               return res
+                    .status(404)
+                    .json({ message: "No user found with this ID" });
+          }
+          const { data: hostel, error: hostelError } = await supabase
+               .from("hostels")
+               .select("hostel_id")
+               .eq("hostel_id", hostel_id)
+               .maybeSingle();
+          if (hostelError || !hostel) {
+               console.log("error");
+               return res
+                    .status(404)
+                    .json({ message: "No Hostel found with this ID" });
+          }
+
+          const code = `${hostel_id}:${user_id}`;
+
+          const encoded = crypto.AES.encrypt(
+               code,
+               process.env.ENCRYPT_KEY,
+          ).toString();
+          if (!encoded) {
+               return res
+                    .status(404)
+                    .json({ message: "Error in creating code" });
+          }
+
+          return res.status(200).json(encoded);
+     } catch (error) {
+          return res.status(500).json(error);
+     }
+});
+
+router.post("/scanQr", async (req, res) => {
+     try {
+          const { qrCode, currentHostelId } = req.body;
+          if (!qrCode || !currentHostelId) {
+               return res.status(400).json({ message: "Bad request" });
+          }
+
+          const decoded = crypto.AES.decrypt(qrCode, process.env.ENCRYPT_KEY);
+          const combinedText = decoded.toString(crypto.enc.Utf8);
+
+          const destructured = combinedText.split(":");
+          const hostel_id = destructured[0];
+          const user_id = destructured[1];
+          console.log(hostel_id, user_id);
+
+          if (currentHostelId !== hostel_id) {
+               console.log("error");
+               return res.status(400).json({
+                    message: "Hostel-Id mismatch!!",
+               });
+          }
+
+          return res.status(200).json({ hostel: hostel_id, user: user_id });
+     } catch (err) {
+          console.log("error");
+          return res.status(500).json({ message: err });
      }
 });
 
