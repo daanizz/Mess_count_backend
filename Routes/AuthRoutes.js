@@ -1,10 +1,16 @@
-// Backend Router (fixed)
+/*
+     1. Added a code block in the refresh token so that when refresh token is call a new refresh token is also recieved
+     2. Changed the user response to hostel id intead of hostel name
+     3. Changed the crypto since ai suggested a package was needed since thier was no build in package
+     4. changed the scanQr and getQr 
+     5. Added hostels route to get all the hostels 
+*/
 import supabase from "../Configurations/dbConnection.js";
 import bcrypt from "bcrypt";
 import { Router } from "express";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import crypto from "crypto-js";
+import QRCode from "qrcode";
 import path from "path";
 import { verify } from "../middleware/verify.js";
 
@@ -17,7 +23,6 @@ router.use((req, res, next) => {
 });
 
 router.post("/login", async (req, res) => {
-     console.log("Login API hit with body:", req.body);
      try {
           const { email, password } = req.body;
           if (!email || !password) {
@@ -33,10 +38,10 @@ router.post("/login", async (req, res) => {
                .single();
 
           if (error) {
-               return res.status(400).json({
-                    message: "Supabase error!",
-                    details: error.message,
-               });
+               console.error("Supabase error (users):", error.message);
+               return res
+                    .status(500)
+                    .json({ message: "Database query failed!" });
           }
           if (!user) {
                return res.status(404).json({ message: "User not found!" });
@@ -51,15 +56,30 @@ router.post("/login", async (req, res) => {
                     .status(401)
                     .json({ message: "Password does not match!" });
           }
+          let student = null;
+          if (user.role == "STUDENT") {
+               const { data, error } = await supabase
+                    .from("students")
+                    .select("*")
+                    .eq("user_id", user.user_id)
+                    .single();
+               if (error) {
+                    console.error("Supabase error (students):", error.message);
+                    return res
+                         .status(500)
+                         .json({ message: "Database query failed!" });
+               }
+               student = data;
+          }
 
           // Generate tokens with standardized minimal payload
           const accessToken = jwt.sign(
-               { userId: user.user_id, role: user.role },
+               { user_id: user.user_id, role: user.role },
                process.env.JWT_SECRET,
                { expiresIn: "3h" },
           );
           const refreshToken = jwt.sign(
-               { userId: user.user_id },
+               { user_id: user.user_id },
                process.env.JWT_REFRESHTOKEN_SECRET,
                { expiresIn: "7d" },
           );
@@ -70,34 +90,6 @@ router.post("/login", async (req, res) => {
                secure: process.env.NODE_ENV === "production",
                maxAge: 7 * 24 * 60 * 60 * 1000,
           });
-          const userId = user.user_id;
-          if (user.role === "STUDENT") {
-               const { data: student, error: hostel_id_gettingerror } =
-                    await supabase
-                         .from("students")
-                         .select("hostel_id,admission_no")
-                         .eq("user_id", userId)
-                         .maybeSingle();
-               if (hostel_id_gettingerror) {
-                    return res.status(500).json({ message: "error" });
-               }
-               if (!student) {
-                    return res
-                         .status(404)
-                         .json({ message: "Student record not found" });
-               }
-               return res.status(200).json({
-                    message: "Authentication success!",
-                    accessToken,
-                    user: {
-                         user_id: user.user_id,
-                         name: user.name,
-                         role: user.role,
-                         hostel_id: student.hostel_id,
-                         admission_no: student.admission_no,
-                    },
-               });
-          }
 
           // Return user + tokens with consistent fields
           return res.status(200).json({
@@ -107,6 +99,8 @@ router.post("/login", async (req, res) => {
                     user_id: user.user_id,
                     name: user.name,
                     role: user.role,
+                    hostel_name: user.hostel_name, // Assuming db field is hostel_name; adjust if needed
+                    admission_no: user.admission_no,
                },
           });
      } catch (error) {
@@ -163,52 +157,60 @@ router.post("/create", async (req, res) => {
 //      }
 // });
 
-router.post("/getQrCode", async (req, res) => {
+router.post("/getQrCode", verify, async (req, res) => {
      try {
-          const { user_id, hostel_id } = req.body;
-          console.log(user_id, hostel_id);
-          if (!user_id || !hostel_id) {
-               return res.status(404).json({ message: "ba request" });
+          const user_id = req.user.user_id;
+          const { hostel_id } = req.body;
+
+          if (!hostel_id) {
+               return res
+                    .status(400)
+                    .json({ message: "Hostel ID is required" });
           }
+
           const { data: user, error: userError } = await supabase
                .from("students")
-               .select("user_id")
+               .select("user_id, hostel_id")
                .eq("user_id", user_id)
+               .eq("hostel_id", hostel_id)
                .maybeSingle();
+
           if (userError || !user) {
-               console.log("error");
-               return res
-                    .status(404)
-                    .json({ message: "No user found with this ID" });
+               console.error("Supabase error (students):", userError?.message);
+               return res.status(404).json({
+                    message: "User not found or doesn't belong to this hostel",
+               });
           }
+
           const { data: hostel, error: hostelError } = await supabase
                .from("hostels")
                .select("hostel_id")
                .eq("hostel_id", hostel_id)
                .maybeSingle();
+
           if (hostelError || !hostel) {
-               console.log("error");
-               return res
-                    .status(404)
-                    .json({ message: "No Hostel found with this ID" });
+               console.error("Supabase error (hostels):", hostelError?.message);
+               return res.status(404).json({ message: "Hostel not found" });
           }
 
           const code = `${hostel_id}:${user_id}`;
-
-          const encoded = crypto.AES.encrypt(
+          const encoded = CryptoJS.AES.encrypt(
                code,
                process.env.ENCRYPT_KEY,
           ).toString();
+
           if (!encoded) {
                return res
-                    .status(404)
-                    .json({ message: "Error in creating code" });
+                    .status(500)
+                    .json({ message: "Error generating QR code" });
           }
 
           return res.status(200).json({ qrCode: encoded });
      } catch (error) {
-          console.log(error);
-          return res.status(500).json(error);
+          console.error("QR code generation error:", error);
+          return res
+               .status(500)
+               .json({ message: "Server error while generating QR code" });
      }
 });
 
@@ -219,8 +221,8 @@ router.post("/scanQr", async (req, res) => {
                return res.status(400).json({ message: "Bad request" });
           }
 
-          const decoded = crypto.AES.decrypt(qrCode, process.env.ENCRYPT_KEY);
-          const combinedText = decoded.toString(crypto.enc.Utf8);
+          const decoded = CryptoJS.AES.decrypt(qrCode, process.env.ENCRYPT_KEY);
+          const combinedText = decoded.toString(CryptoJS.enc.Utf8);
 
           const destructured = combinedText.split(":");
           const hostel_id = destructured[0];
@@ -330,24 +332,68 @@ router.post("/refresh-token", async (req, res) => {
           return res.status(401).json({ message: "Refresh token missing." });
      }
      try {
-          const { userId } = jwt.verify(
+          const { user_id } = jwt.verify(
                token,
                process.env.JWT_REFRESHTOKEN_SECRET,
           );
-          const { data: user } = await supabase
+
+          // First get user
+          const { data: user, error: userError } = await supabase
                .from("users")
-               .select("user_id, name, role, hostel_name, admission_no")
-               .eq("user_id", userId)
+               .select("user_id, name, role")
+               .eq("user_id", user_id)
                .single();
+
+          if (userError || !user) {
+               return res.status(404).json({ message: "User not found" });
+          }
+
+          // If student, get student info
+          let student = null;
+          if (user.role === "STUDENT") {
+               const { data } = await supabase
+                    .from("students")
+                    .select("hostel_id, admission_no")
+                    .eq("user_id", user_id)
+                    .single();
+               student = data;
+          }
+
           const newAccessToken = jwt.sign(
-               { userId: user.user_id, role: user.role },
+               { user_id: user.user_id, role: user.role },
                process.env.JWT_SECRET,
-               {
-                    expiresIn: "3h",
-               },
+               { expiresIn: "3h" },
           );
-          return res.status(200).json({ accessToken: newAccessToken, user });
-     } catch {
+
+          const refreshToken = jwt.sign(
+               { user_id: user.user_id },
+               process.env.JWT_REFRESHTOKEN_SECRET,
+               { expiresIn: "7d" },
+          );
+
+          res.cookie("refreshToken", refreshToken, {
+               httpOnly: true,
+               secure: process.env.NODE_ENV === "production",
+               maxAge: 7 * 24 * 60 * 60 * 1000,
+          });
+
+          const userResponse = {
+               user_id: user.user_id,
+               name: user.name,
+               role: user.role,
+          };
+
+          if (student) {
+               userResponse.hostel_id = student.hostel_id;
+               userResponse.admission_no = student.admission_no;
+          }
+
+          return res.status(200).json({
+               message: "Token refreshed successfully",
+               accessToken: newAccessToken,
+               user: userResponse,
+          });
+     } catch (error) {
           return res.status(403).json({ message: "Invalid refresh token." });
      }
 });
@@ -357,40 +403,68 @@ router.post("/logout", (req, res) => {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
      });
-     return res.sendStatus(204);
+     return res.status(200).json({ message: "Logged out successfully" });
 });
 
 router.get("/get-role", verify, async (req, res) => {
      try {
-          const { userId } = req.user;
+          const { user_id } = req.user;
           const { data: user, error } = await supabase
                .from("users")
                .select("user_id, name, role")
-               .eq("user_id", userId)
+               .eq("user_id", user_id)
                .single();
 
           if (error || !user) {
                return res.status(404).json({ message: "User not found" });
           }
-
+          let student;
           if (user.role === "STUDENT") {
-               const { data, error } = await supabase
+               const { data } = await supabase
                     .from("students")
-                    .select("hostel_id")
-                    .eq("user_id", userId)
+                    .select("hostel_id, admission_no")
+                    .eq("user_id", user_id)
                     .single();
-
-               if (error) {
-                    return res.status(404).json({ message: "no hostel" });
-               }
-               user.hostel_id = student.hostel_id;
-               return res.status(200).json({ user });
+               student = data;
           }
-          return res.status(200).json({ user });
+
+          const userResponse = {
+               user_id: user.user_id,
+               name: user.name,
+               role: user.role,
+          };
+
+          if (student) {
+               userResponse.hostel_id = student.hostel_id;
+               userResponse.admission_no = student.admission_no;
+          }
+
+          return res.status(200).json({
+               user: userResponse,
+          });
      } catch (error) {
           return res
                .status(500)
                .json({ message: "Error fetching user", error: error.message });
+     }
+});
+
+router.get("/hostels", verify, async (req, res) => {
+     try {
+          const { data: hostels, error } = await supabase
+               .from("hostels")
+               .select("hostel_id, hostel_name")
+               .order("hostel_name", { ascending: true });
+
+          if (error) {
+               console.error("Supabase error (hostels):", error.message);
+               return res
+                    .status(500)
+                    .json({ message: "Failed to fetch hostels" });
+          }
+          res.json({ hostels });
+     } catch (e) {
+          res.status(500).json({ message: "Server error" });
      }
 });
 export default router;
