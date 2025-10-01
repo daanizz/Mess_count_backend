@@ -86,6 +86,7 @@ router.post("/login", async (req, res) => {
           });
 
           // Return user + tokens with consistent fields
+          console.log("messed here" + student?.hostel_id);
           return res.status(200).json({
                message: "Authentication success!",
                accessToken,
@@ -93,7 +94,7 @@ router.post("/login", async (req, res) => {
                     user_id: user.user_id,
                     name: user.name,
                     role: user.role,
-                    hostel_name: student ? student.hostel_id : null, // Assuming db field is hostel_name; adjust if needed
+                    hostel_id: student ? student.hostel_id : null, // Assuming db field is hostel_name; adjust if needed
                     admission_no: student ? student.admission_no : null,
                },
           });
@@ -404,40 +405,45 @@ router.post("/logout", (req, res) => {
 router.get("/get-role", verify, async (req, res) => {
      try {
           const { user_id } = req.user;
-          const { data: user, error } = await supabase
+
+          // Get user data
+          const { data: user, error: userError } = await supabase
                .from("users")
                .select("user_id, name, role")
                .eq("user_id", user_id)
                .single();
 
-          if (error || !user) {
+          if (userError || !user) {
                return res.status(404).json({ message: "User not found" });
           }
-          let student;
+
+          let userResponse = {
+               user_id: user.user_id,
+               name: user.name,
+               role: user.role,
+               hostel_id: null,
+               admission_no: null,
+          };
+
+          // If student, get student details
           if (user.role === "STUDENT") {
-               const { data } = await supabase
+               const { data: student, error: studentError } = await supabase
                     .from("students")
                     .select("hostel_id, admission_no")
                     .eq("user_id", user_id)
                     .single();
-               student = data;
+
+               if (!studentError && student) {
+                    userResponse.hostel_id = student.hostel_id;
+                    userResponse.admission_no = student.admission_no;
+               }
           }
 
-          const userResponse = {
-               user_id: user.user_id,
-               name: user.name,
-               role: user.role,
-          };
+          console.log("Final user response:", userResponse);
 
-          if (student) {
-               userResponse.hostel_id = student.hostel_id;
-               userResponse.admission_no = student.admission_no;
-          }
-
-          return res.status(200).json({
-               user: userResponse,
-          });
+          return res.status(200).json({ user: userResponse });
      } catch (error) {
+          console.error("Error in /get-role:", error);
           return res
                .status(500)
                .json({ message: "Error fetching user", error: error.message });
