@@ -1,10 +1,3 @@
-/*
-     1. Added a code block in the refresh token so that when refresh token is call a new refresh token is also recieved
-     2. Changed the user response to hostel id intead of hostel name
-     3. Changed the crypto since ai suggested a package was needed since thier was no build in package
-     4. changed the scanQr and getQr 
-     5. Added hostels route to get all the hostels 
-*/
 import supabase from "../Configurations/dbConnection.js";
 import bcrypt from "bcrypt";
 import { Router } from "express";
@@ -12,6 +5,7 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import QRCode from "qrcode";
 import path from "path";
+import CryptoJS from "crypto-js";
 import { verify } from "../middleware/verify.js";
 
 dotenv.config();
@@ -57,12 +51,12 @@ router.post("/login", async (req, res) => {
                     .json({ message: "Password does not match!" });
           }
           let student = null;
-          if (user.role == "STUDENT") {
+          if (user && user.role === "STUDENT") {
                const { data, error } = await supabase
                     .from("students")
                     .select("*")
                     .eq("user_id", user.user_id)
-                    .single();
+                    .maybeSingle();
                if (error) {
                     console.error("Supabase error (students):", error.message);
                     return res
@@ -99,8 +93,8 @@ router.post("/login", async (req, res) => {
                     user_id: user.user_id,
                     name: user.name,
                     role: user.role,
-                    hostel_name: user.hostel_name, // Assuming db field is hostel_name; adjust if needed
-                    admission_no: user.admission_no,
+                    hostel_name: student ? student.hostel_id : null, // Assuming db field is hostel_name; adjust if needed
+                    admission_no: student ? student.admission_no : null,
                },
           });
      } catch (error) {
@@ -157,10 +151,11 @@ router.post("/create", async (req, res) => {
 //      }
 // });
 
-router.post("/getQrCode", verify, async (req, res) => {
+router.post("/getQrCode", async (req, res) => {
      try {
-          const user_id = req.user.user_id;
-          const { hostel_id } = req.body;
+          // const user_id = req.user.user_id;
+          const { user_id, hostel_id } = req.body;
+          console.log(hostel_id, user_id);
 
           if (!hostel_id) {
                return res
