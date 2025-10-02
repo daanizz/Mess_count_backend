@@ -86,7 +86,7 @@ router.post("/login", async (req, res) => {
           });
 
           // Return user + tokens with consistent fields
-          console.log("messed here" + student?.hostel_id);
+          // console.log("messed here" + student?.hostel_id
           return res.status(200).json({
                message: "Authentication success!",
                accessToken,
@@ -152,7 +152,7 @@ router.post("/create", async (req, res) => {
 //      }
 // });
 
-router.post("/getQrCode", async (req, res) => {
+router.post("/getQrCode", verify, async (req, res) => {
      try {
           // const user_id = req.user.user_id;
           const { user_id, hostel_id } = req.body;
@@ -210,7 +210,7 @@ router.post("/getQrCode", async (req, res) => {
      }
 });
 
-router.post("/scanQr", async (req, res) => {
+router.post("/scanQr", verify, async (req, res) => {
      try {
           const { qrCode, currentHostelId, confirmed_by } = req.body;
           if (!qrCode || !currentHostelId) {
