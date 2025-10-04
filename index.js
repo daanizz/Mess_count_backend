@@ -6,6 +6,7 @@ import AuthRouter from "./Routes/AuthRoutes.js";
 import cookieParser from "cookie-parser";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
+import UserRouter from "./Routes/UserRouter.js";
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
@@ -28,6 +29,7 @@ const PORT = process.env.PORT;
 app.use(express.json());
 // app.use("/add", AddStudent);
 app.use("/api/auth", AuthRouter);
+app.use("/api/user", UserRouter);
 
 app.listen(PORT || 4050, () => {
      console.log(`http://localhost:${PORT}`);
