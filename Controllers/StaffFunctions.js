@@ -267,3 +267,53 @@ export const Hostels = async (req, res) => {
           });
      }
 };
+
+export const GetCount = async (req, res) => {
+     try {
+          const { created_at, meal_type } = req.body;
+          if (!created_at || !meal_type) {
+               return res
+                    .status(400)
+                    .json({ message: "Incomplete data entered" });
+          }
+
+          const meal_id = await GetMealId(created_at, meal_type);
+          // const meal_id = req.params.id;
+          if (!meal_id) {
+               return res
+                    .status(400)
+                    .json({ message: "Meal id fetching Error" });
+          }
+
+          const { count, error: countError } = await supabase
+               .from("meals_log")
+               .select("*", { count: "exact", head: true })
+               .eq("meal_id", meal_id);
+
+          if (countError) {
+               return res
+                    .status(404)
+                    .json({ message: "Supabase counting errror", countError });
+          }
+
+          return res.status(200).json({ count });
+     } catch (error) {
+          return res.status(500).json({ message: error });
+     }
+};
+
+async function GetMealId(created_at, meal_type) {
+     const { data: meal, error: errorFetchingMealTable } = await supabase
+          .from("meals")
+          .select("id")
+          .eq("created_at", created_at)
+          .eq("meal_type", meal_type)
+          .single();
+     if (errorFetchingMealTable || !meal) {
+          return null;
+     }
+
+     return meal.id;
+}
+
+//function: user selects, the date and meal type - and submits, then frontend calls getmealid and send the mealId to get the total count>>
