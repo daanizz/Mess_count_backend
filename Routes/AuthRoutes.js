@@ -4,12 +4,14 @@ import { Router } from "express";
 import { verify } from "../middleware/verify.js";
 
 import {
-     UserLogin,
-     UserLogout,
-     RefreshToken,
-     GetRole,
-     CreateUser,
+  UserLogin,
+  UserLogout,
+  RefreshToken,
+  GetRole,
+  CreateUser,
 } from "../Controllers/AuthController.js";
+import { GetQr } from "../Controllers/StudentFunctions.js";
+import { Hostels, ScanQr } from "../Controllers/StaffFunctions.js";
 
 // dotenv.config();
 
@@ -36,10 +38,10 @@ const router = Router();
 router.post("/login", UserLogin);
 router.post("/logout", UserLogout);
 router.post("/create", CreateUser);
-router.post("/getQrCode", verify);
-router.post("/scanQr", verify);
+router.post("/getQrCode", verify, GetQr);
+router.post("/scanQr", verify, ScanQr);
 router.get("/get-role", verify, GetRole);
 router.post("/refresh-token", RefreshToken);
-router.get("/hostels", verify);
+router.get("/hostels", verify, Hostels);
 
 export default router;
