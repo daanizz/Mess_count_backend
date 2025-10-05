@@ -20,7 +20,7 @@ import cors from "cors";
 
 app.use(
      cors({
-          origin: ["http://localhost:5173", "https://mess-count.vercel.app"], // or whatever port your frontend runs on
+          origin: ["http://localhost:5173", "https://mess-count.vercel.app"],
           credentials: true,
      }),
 );
