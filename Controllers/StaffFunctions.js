@@ -2,13 +2,82 @@ import supabase from "../Configurations/dbConnection.js";
 import CryptoJS from "crypto-js";
 import { verify } from "../middleware/verify.js";
 
+const hour = 60;
+const minute = 1;
+
+function getMealType(istTime) {
+     const currentHour = istTime.getHours();
+     const currentMin = istTime.getMinutes();
+     const totalMinutes = currentHour * 60 + currentMin;
+
+     const breakfastStart = 7 * hour + 30 * minute;
+     const breakfastEnd = 11 * hour;
+     const lunchStart = 11 * hour + 45 * minute;
+     const lunchEnd = 14 * hour;
+     const snackStart = 15 * hour + 20 * minute;
+     const snackEnd = 18 * hour;
+     const dinnerStart = 18 * hour + 45 * minute;
+     const dinnerEnd = 21 * hour + 45 * minute;
+     let meal_type = "error";
+
+     if (totalMinutes >= breakfastStart && totalMinutes <= breakfastEnd) {
+          meal_type = "Breakfast";
+     } else if (totalMinutes >= lunchStart && totalMinutes <= lunchEnd) {
+          meal_type = "Lunch";
+     } else if (totalMinutes >= snackStart && totalMinutes <= snackEnd) {
+          meal_type = "Snack";
+     } else if (totalMinutes >= dinnerStart && totalMinutes <= dinnerEnd) {
+          meal_type = "Dinner";
+     } else {
+          throw new Error("Out of meal time");
+     }
+     return meal_type;
+}
+
+async function getStudentDetails(qrCode) {
+     let barcode;
+     const barcodeRegex = /ST(BT|MT|MCA)[2-5][0-9]{5}/;
+     barcode = barcodeRegex.test(qrCode);
+     if (barcode) {
+          const admission_no = qrCode.slice(-6);
+
+          const { data: student, error: studentFetchingError } = await supabase
+               .from("students")
+               .select("user_id,hostel_id")
+               .eq("admission_no", admission_no)
+               .single();
+
+          if (studentFetchingError) {
+               throw new Error("error in fetching the student details");
+          }
+
+          return [`${student.hostel_id}`, `${student.user_id}`];
+     }
+     let combinedText;
+     try {
+          const decoded = CryptoJS.AES.decrypt(qrCode, process.env.ENCRYPT_KEY);
+          combinedText = decoded.toString(CryptoJS.enc.Utf8);
+
+          if (!combinedText) {
+               throw new Error("Invalid QR code");
+          }
+     } catch (decryptError) {
+          throw new Error("Invalid or corrupted QR code");
+     }
+
+     const destructured = combinedText.split(":");
+     if (destructured.length !== 2) {
+          throw new Error("Invalid QR code format");
+     }
+     return destructured;
+}
+
 export const ScanQr = async (req, res) => {
      try {
           const confirmed_by = req.user.user_id;
           const { qrCode, currentHostelId } = req.body;
-          const hour = 60;
-          const minute = 1;
 
+          console.log(qrCode);
           if (!qrCode || !currentHostelId) {
                return res.status(400).json({
                     success: false,
@@ -23,52 +92,15 @@ export const ScanQr = async (req, res) => {
                });
           }
 
-          let combinedText;
+          let hostel_id, student_id;
+
           try {
-               const decoded = CryptoJS.AES.decrypt(
-                    qrCode,
-                    process.env.ENCRYPT_KEY,
-               );
-               combinedText = decoded.toString(CryptoJS.enc.Utf8);
-
-               if (!combinedText) {
-                    return res.status(400).json({
-                         success: false,
-                         message: "Invalid QR code",
-                    });
-               }
-          } catch (decryptError) {
-               console.error("QR decryption error:", decryptError);
-               return res.status(400).json({
-                    success: false,
-                    message: "Invalid or corrupted QR code",
-               });
-          }
-
-          const destructured = combinedText.split(":");
-          if (destructured.length !== 2) {
-               return res.status(400).json({
-                    success: false,
-                    message: "Invalid QR code format",
-               });
-          }
-
-          const hostel_id = destructured[0];
-          const student_id = destructured[1];
-          // const expiryTime = parseInt(destructured[2]);
-
-          // if (Date.now() > expiryTime) {
-          //   return res.status(400).json({
-          //     success: false,
-          //     message: "QR code has expired",
-          //   });
-          // }
-
-          if (parseInt(currentHostelId) !== parseInt(hostel_id)) {
-               return res.status(400).json({
-                    success: false,
-                    message: "Hostel ID mismatch",
-               });
+               const destructured = await getStudentDetails(qrCode);
+               hostel_id = destructured[0];
+               student_id = destructured[1];
+               console.log(student_id);
+          } catch (error) {
+               return res.status(500).json({ success: false, message: error });
           }
 
           const currentTime = new Date();
@@ -77,33 +109,13 @@ export const ScanQr = async (req, res) => {
                currentTime.toLocaleString("en-US", options),
           );
 
-          const currentHour = istTime.getHours();
-          const currentMin = istTime.getMinutes();
-          const totalMinutes = currentHour * 60 + currentMin;
-
-          let meal_type = "";
-          const breakfastStart = 7 * hour + 30 * minute;
-          const breakfastEnd = 11 * hour;
-          const lunchStart = 11 * hour + 45 * minute;
-          const lunchEnd = 14 * hour;
-          const snackStart = 15 * hour + 20 * minute;
-          const snackEnd = 18 * hour;
-          const dinnerStart = 18 * hour + 45 * minute;
-          const dinnerEnd = 21 * hour + 45 * minute;
-
-          if (totalMinutes >= breakfastStart && totalMinutes <= breakfastEnd) {
-               meal_type = "Breakfast";
-          } else if (totalMinutes >= lunchStart && totalMinutes <= lunchEnd) {
-               meal_type = "Lunch";
-          } else if (totalMinutes >= snackStart && totalMinutes <= snackEnd) {
-               meal_type = "Snack";
-          } else if (totalMinutes >= dinnerStart && totalMinutes <= dinnerEnd) {
-               meal_type = "Dinner";
-          } else {
-               return res.status(400).json({
-                    success: false,
-                    message: "Outside meal time window",
-               });
+          let meal_type;
+          try {
+               meal_type = getMealType(istTime);
+          } catch (error) {
+               return res
+                    .status(400)
+                    .json({ success: false, message: error.message });
           }
 
           const startOfDay = new Date(
@@ -268,7 +280,7 @@ export const Hostels = async (req, res) => {
      }
 };
 
-export const GetCount = async (req, res) => {
+export const getMealCount = async (req, res) => {
      try {
           const { created_at, meal_type } = req.body;
           if (!created_at || !meal_type) {
@@ -277,7 +289,14 @@ export const GetCount = async (req, res) => {
                     .json({ message: "Incomplete data entered" });
           }
 
-          const meal_id = await GetMealId(created_at, meal_type);
+          let meal_id;
+          try {
+               meal_id = await GetMealId(created_at, meal_type);
+          } catch (error) {
+               return res
+                    .status(500)
+                    .json({ success: false, message: error.message });
+          }
           // const meal_id = req.params.id;
           if (!meal_id) {
                return res
@@ -310,7 +329,7 @@ async function GetMealId(created_at, meal_type) {
           .eq("meal_type", meal_type)
           .single();
      if (errorFetchingMealTable || !meal) {
-          return null;
+          throw new Error("error in getting meal id");
      }
 
      return meal.id;

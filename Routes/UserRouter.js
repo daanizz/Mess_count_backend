@@ -1,7 +1,11 @@
 import { Router } from "express";
 import { verify } from "../middleware/verify.js";
 import { GetQr } from "../Controllers/StudentFunctions.js";
-import { ScanQr, Hostels, GetCount } from "../Controllers/StaffFunctions.js";
+import {
+     ScanQr,
+     Hostels,
+     getMealCount,
+} from "../Controllers/StaffFunctions.js";
 
 const router = Router();
 
@@ -19,6 +23,6 @@ const router = Router();
 router.post("/getQrCode", verify, GetQr);
 router.post("/scanQr", verify, ScanQr);
 router.get("/hostels", verify, Hostels);
-router.get("/getCount/:id", verify, GetCount);
+router.get("/getCount/:id", verify, getMealCount);
 
 export default router;

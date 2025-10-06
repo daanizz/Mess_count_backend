@@ -47,6 +47,14 @@ export const GetQr = async (req, res) => {
                     message: "User not found or doesn't belong to this hostel",
                });
           }
+          // const expiry_date = student.expiry_date;
+          // const currentDate = new Date.now();
+          // if (expiry_date <= currentDate) {
+          //      return res.status(400).json({
+          //           success: false,
+          //           message: "The user account has been expired, pls constact office if its a mistake",
+          //      });
+          // }
 
           const { data: hostel, error: hostelError } = await supabase
                .from("hostels")
