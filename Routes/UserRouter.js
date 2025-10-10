@@ -2,10 +2,11 @@ import { Router } from "express";
 import { verify } from "../middleware/verify.js";
 import { GetQr } from "../Controllers/StudentFunctions.js";
 import {
-     ScanQr,
-     Hostels,
-     getMealCount,
+  ScanQr,
+  Hostels,
+  getMealCount,
 } from "../Controllers/StaffFunctions.js";
+import { SaveSubscription } from "../Controllers/PushController.js";
 
 const router = Router();
 
@@ -19,7 +20,7 @@ const router = Router();
 //      );
 //      next();
 // });
-
+router.post("/save-subscription", verify, SaveSubscription);
 router.post("/getQrCode", verify, GetQr);
 router.post("/scanQr", verify, ScanQr);
 router.get("/hostels", verify, Hostels);
