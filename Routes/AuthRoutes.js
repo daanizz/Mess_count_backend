@@ -4,14 +4,14 @@ import dotenv from "dotenv";
 import { verify } from "../middleware/verify.js";
 
 import {
-  UserLogin,
-  UserLogout,
-  RefreshToken,
-  GetRole,
-  CreateUser,
+     UserLogin,
+     UserLogout,
+     RefreshToken,
+     GetRole,
+     CreateUser,
 } from "../Controllers/AuthController.js";
-import { GetQr } from "../Controllers/StudentFunctions.js";
-import { Hostels, ScanQr } from "../Controllers/StaffFunctions.js";
+import { getQr } from "../Controllers/StudentFunctions.js";
+import { hostels, scanQr } from "../Controllers/StaffFunctions.js";
 
 dotenv.config();
 
@@ -35,15 +35,15 @@ const router = Router();
 //      next();
 // });
 router.get("/vapid-public-key", (req, res) => {
-  res.status(200).json({ publicKey: process.env.VAPID_PUBLIC_KEY });
+     res.status(200).json({ publicKey: process.env.VAPID_PUBLIC_KEY });
 });
 router.post("/login", UserLogin);
 router.post("/logout", UserLogout);
 router.post("/create", CreateUser);
-router.post("/getQrCode", verify, GetQr);
-router.post("/scanQr", verify, ScanQr);
+router.post("/getQrCode", verify, getQr);
+router.post("/scanQr", verify, scanQr);
 router.get("/get-role", verify, GetRole);
 router.post("/refresh-token", RefreshToken);
-router.get("/hostels", verify, Hostels);
+router.get("/hostels", verify, hostels);
 
 export default router;

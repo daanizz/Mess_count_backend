@@ -4,14 +4,10 @@ import dotenv from "dotenv";
 import supabase from "./Configurations/dbConnection.js";
 import AuthRouter from "./Routes/AuthRoutes.js";
 import cookieParser from "cookie-parser";
-import path, { dirname } from "path";
-import { fileURLToPath } from "url";
 import UserRouter from "./Routes/UserRouter.js";
+import adminRouter from "./Routes/AdminRoutes.js";
 
 const app = express();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-app.use("/qrcodes", express.static(path.join(__dirname, "qrcodes")));
 
 dotenv.config();
 app.use(cookieParser());
@@ -30,6 +26,7 @@ app.use(express.json());
 // app.use("/add", AddStudent);
 app.use("/api/auth", AuthRouter);
 app.use("/api/user", UserRouter);
+app.use("/api/admin", adminRouter);
 
 app.listen(PORT || 4050, () => {
      console.log(`http://localhost:${PORT}`);

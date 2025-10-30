@@ -2,7 +2,7 @@ import supabase from "../Configurations/dbConnection.js";
 import CryptoJS from "crypto-js";
 import { verify } from "../middleware/verify.js";
 
-export const GetQr = async (req, res) => {
+export const getQr = async (req, res) => {
      try {
           const user_id = req.user.user_id;
           const { hostel_id } = req.body;
