@@ -1,13 +1,20 @@
 import express from "express";
-import { addNewBatch, addStudents } from "../Controllers/AdminFunctions.js";
+import {
+     addHostelRep,
+     addNewBatch,
+     addStudents,
+} from "../Controllers/AdminFunctions.js";
 import { adminCheck, verify } from "../middleware/verify.js";
 
 const router = express.Router();
 
-router.post("/addBatch", verify, adminCheck, addNewBatch);
-router.post("/addStudentCsv", addStudents);
+router.post("/batches", verify, adminCheck, addNewBatch);
+router.post("/students/csv", verify, adminCheck, addStudents);
+router.post("/students/rep", verify, adminCheck, addHostelRep);
 
 export default router;
+
+//to be added in frontend: addNewBatch by amdin
 
 // POST /students
 

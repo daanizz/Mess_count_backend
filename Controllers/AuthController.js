@@ -164,6 +164,13 @@ export const UserLogin = async (req, res) => {
                });
           }
 
+          //here the logic for checking super admin has to be loaded..
+          //check the role. if super admin, then check password and email matches with that of .env file
+          //then update the userId...
+          // if(user.role==SUPER_ADMIN){
+
+          // }
+
           const matchingPass = await bcrypt.compare(
                password,
                user.password_hash,
@@ -196,6 +203,7 @@ export const UserLogin = async (req, res) => {
                process.env.JWT_SECRET,
                { expiresIn: "3h" },
           );
+          // console.log(accessToken);
 
           const refreshToken = jwt.sign(
                { user_id: user.user_id },

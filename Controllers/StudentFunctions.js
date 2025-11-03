@@ -104,3 +104,125 @@ export const getQr = async (req, res) => {
           });
      }
 };
+
+//recieves pollData(contains: {title,options:[text]}),student rep id(user_id),hostel_id,end_time from frontend
+//checks whether student rep is valid or not
+//creates a poll,and stores the poll id
+//adds poll_id to every options and add those options to database
+//done
+export const createPoll = async (req, res) => {
+     const user_id = req.user.user_id;
+     try {
+          const { data: studentRep, error: studentRepfetchingError } =
+               await supabase
+                    .from("hostel_reps")
+                    .select("student_id")
+                    .eq("student_id", user_id)
+                    .single();
+
+          if (studentRepfetchingError) {
+               return res.status(400).json({
+                    message:
+                         "Error occured while fetching from database:" +
+                         studentRepfetchingError.message,
+                    success: false,
+               });
+          }
+          const { pollData, end_time } = req.body;
+
+          const { data: hostel, error: getHostelError } = await supabase
+               .from("students")
+               .select("hostel_id")
+               .eq("user_id", user_id)
+               .single();
+          if (getHostelError) {
+               return res.status(400).json({
+                    message:
+                         "error in fetching correct hostel: " +
+                         getHostelError.message,
+               });
+          }
+
+          const { data: createdPoll, error: creatingPollError } = await supabase
+               .from("polls")
+               .insert({
+                    created_by: user_id,
+                    title: pollData.title,
+                    hostel_id: hostel.hostel_id,
+                    end_time,
+               })
+               .select("id")
+               .single();
+
+          if (creatingPollError) {
+               return res.status(404).json({
+                    message:
+                         "Couldnt create poll,error:" +
+                         creatingPollError.message,
+                    success: false,
+               });
+          }
+          const options = pollData.options;
+          options.map((option) => {
+               option.poll_id = createdPoll.id;
+          });
+
+          const { error: optionAddingError } = await supabase
+               .from("poll_options")
+               .insert(options);
+
+          if (optionAddingError) {
+               await supabase
+                    .from("poll_options")
+                    .delete()
+                    .in("poll_id", createdPoll.id);
+               await supabase.from("polls").delete().in("id", createdPoll.id);
+               return res.status(500).json({
+                    message:
+                         "Couldn't create Poll. pls retry!: " +
+                         optionAddingError.message,
+               });
+          }
+
+          return res.status(200).json({
+               message: "Created the poll successfully..",
+               success: true,
+          });
+     } catch (error) {
+          return res
+               .status(500)
+               .json({ message: "Internal error: " + error.message });
+     }
+};
+
+export const makeVote = async (req, res) => {
+     const { user_id } = req.user.user_id;
+     const { optionId } = req.body;
+
+     try {
+          if (!optionId) {
+               return res.status(400).json({
+                    message: "No option selected or id not found",
+                    success: false,
+               });
+          }
+          const { data: polled, error: checkingDbError } = await supabase
+               .from("votes")
+               .select("id")
+               .eq("student_id", user_id)
+               .eq("option_id");
+          const { error: addingVoteError } = await supabase
+               .from("votes")
+               .insert({ student_id: user_id, option_id: optionId });
+          if (addingVoteError) {
+               return res.status(500).json({
+                    message: "error in making vote" + addingVoteError,
+               });
+          }
+          return res
+               .status(200)
+               .json({ message: "Marked the vote", success: true });
+     } catch (error) {
+          return res.status(500).json({ message: error });
+     }
+};

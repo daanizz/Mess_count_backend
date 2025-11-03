@@ -3,6 +3,7 @@ import papa from "papaparse";
 import bcrypt from "bcrypt";
 
 export const addNewBatch = async (req, res) => {
+     //this function is note there in frontend
      //the admin cehck is done, now the token contains the admin data and is verified..now just update the variable names , instead keep the real one.. as payload is taken from the middleware itself.
      try {
           const { adminId, expiry_date } = req.body;
@@ -23,7 +24,7 @@ export const addNewBatch = async (req, res) => {
           }
 
           const { data: NewBatch, error: BatchAddingError } = await supabase
-               .from("batch_log")
+               .from("batchs")
                .insert({ created_by: adminId, expiry_date: expiry_date })
                .select("id")
                .single();
@@ -136,7 +137,7 @@ async function getBatchId() {
           console.log(CurrentDate);
           // console.log(currentDate);
           const { data: batch, error: batchIdError } = await supabase
-               .from("batch_log")
+               .from("batchs")
                .select("id")
                .gte("expiry_date", CurrentDate)
                .single();
@@ -151,3 +152,64 @@ async function getBatchId() {
           throw new Error(error);
      }
 }
+
+//--functions to be added---
+//
+
+//how this api works: admin goes to add rep. adds rep using the email collected from student.
+//this feature can be enhanced by adding one more api: admin checks for student details by using email provided
+//the frontend shows the student details, and on confirmation by admin, "addHostelRep" api can be called by passing the student id directly..
+export const addHostelRep = async (req, res) => {
+     const userId = req.user.user_id;
+     const { repEmail } = req.body;
+     try {
+          if (!repEmail || !userId) {
+               return res.status(400).json({
+                    message: "email or user id missing",
+                    success: false,
+               });
+          }
+          const { data: hostelRep, error: repGettingError } = await supabase
+               .from("users")
+               .select("*")
+               .eq("email", repEmail)
+               .single();
+
+          if (repGettingError) {
+               return res.status(500).json({
+                    message:
+                         "error in getting student details: " +
+                         repGettingError.message,
+                    success: false,
+               });
+          }
+          console.log(hostelRep.role);
+          if (hostelRep.role !== "STUDENT") {
+               return res
+                    .status(400)
+                    .json({ message: "The user role is not student!!" });
+          }
+          const { error: repAddingError } = await supabase
+               .from("hostel_reps")
+               .insert({ student_id: hostelRep.user_id, added_by: userId });
+          if (repAddingError) {
+               return res.status(500).json({
+                    message:
+                         "error in adding student details: " +
+                         repAddingError.message,
+                    success: false,
+               });
+          }
+
+          return res
+               .status(200)
+               .json({
+                    message: `Student rep for hostel added succesfully`,
+                    success: true,
+               });
+     } catch (error) {
+          return res
+               .status(500)
+               .json({ message: "Internal server error:" + error });
+     }
+};
