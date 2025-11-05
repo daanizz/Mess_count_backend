@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { verify } from "../middleware/verify.js";
-import { createPoll, getQr } from "../Controllers/StudentFunctions.js";
+import {
+     createPoll,
+     getQr,
+     viewCurrentPolls,
+} from "../Controllers/StudentFunctions.js";
 import {
      scanQr,
      hostels,
@@ -26,5 +30,6 @@ router.post("/scan-qr", verify, scanQr);
 router.get("/hostels", verify, hostels);
 router.get("/count/:id", verify, getMealCount);
 router.post("/polls", verify, createPoll);
+router.get("/polls", verify, viewCurrentPolls);
 
 export default router;

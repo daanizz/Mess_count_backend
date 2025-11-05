@@ -226,3 +226,33 @@ export const makeVote = async (req, res) => {
           return res.status(500).json({ message: error });
      }
 };
+
+export const viewCurrentPolls = async (req, res) => {
+     const { hostel_id } = req.body;
+     const currentTime = new Date().toISOString();
+     // console.log(currentTime);
+     const { data: pollData, error: pollRetreivingError } = await supabase
+          .from("polls")
+          .select("*")
+          .eq("hostel_id", hostel_id)
+          .lt("end_time", currentTime);
+     if (pollRetreivingError) {
+          return res.status(400).json({
+               message:
+                    "Error in getting polls: " + pollRetreivingError.message,
+          });
+     }
+
+     const makePoll = await Promise.all(
+          pollData.map(async (poll) => {
+               const { data: optionData } = await supabase
+                    .from("poll_options")
+                    .select("id,text")
+                    .eq("poll_id", poll.id);
+               poll.options = optionData;
+               // console.log(poll);
+          }),
+     );
+
+     return res.status(200).json({ pollData, success: true });
+};
