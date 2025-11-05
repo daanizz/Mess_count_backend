@@ -175,7 +175,7 @@ export const UserLogin = async (req, res) => {
     }
 
     let student = null;
-    if (user.role === "STUDENT") {
+    if (user.role === "STUDENT" || user.role === "STUDENT_REP") {
       try {
         student = await getStudentData(user.user_id);
       } catch (studentError) {
@@ -268,7 +268,7 @@ export const GetRole = async (req, res) => {
     }
 
     let student = null;
-    if (user.role === "STUDENT") {
+    if (user.role === "STUDENT" || user.role === "STUDENT_REP") {
       try {
         student = await getStudentData(user_id);
       } catch (studentError) {
@@ -341,7 +341,7 @@ export const RefreshToken = async (req, res) => {
     }
 
     let student = null;
-    if (user.role === "STUDENT") {
+    if (user.role === "STUDENT" || user.role === "STUDENT_REP") {
       try {
         student = await getStudentData(user_id);
       } catch (studentError) {
