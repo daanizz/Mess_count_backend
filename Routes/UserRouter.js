@@ -1,14 +1,16 @@
 import { Router } from "express";
 import { verify } from "../middleware/verify.js";
 import {
-     createPoll,
-     getQr,
-     viewCurrentPolls,
+  createPoll,
+  getQr,
+  makeVote,
+  MyMeals,
+  viewCurrentPolls,
 } from "../Controllers/StudentFunctions.js";
 import {
-     scanQr,
-     hostels,
-     getMealCount,
+  scanQr,
+  hostels,
+  getMealCount,
 } from "../Controllers/StaffFunctions.js";
 import { SaveSubscription } from "../Controllers/PushController.js";
 
@@ -30,6 +32,7 @@ router.post("/scan-qr", verify, scanQr);
 router.get("/hostels", verify, hostels);
 router.get("/count/:id", verify, getMealCount);
 router.post("/polls", verify, createPoll);
+router.get("/mymeals", verify, MyMeals);
+router.get("/vote", verify, makeVote);
 router.get("/polls", verify, viewCurrentPolls);
-
 export default router;
