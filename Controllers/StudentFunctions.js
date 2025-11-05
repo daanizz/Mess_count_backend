@@ -249,8 +249,18 @@ export const viewCurrentPolls = async (req, res) => {
                     .from("poll_options")
                     .select("id,text")
                     .eq("poll_id", poll.id);
+
+               const getVotes = await Promise.all(
+                    optionData.map(async (option) => {
+                         const { count } = await supabase
+                              .from("votes")
+                              .select("*", { count: "exact", head: true })
+                              .eq("option_id", option.id);
+                         option.votes = count;
+                    }),
+               );
+
                poll.options = optionData;
-               // console.log(poll);
           }),
      );
 
