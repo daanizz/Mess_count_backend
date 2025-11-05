@@ -187,7 +187,7 @@ export const createPoll = async (req, res) => {
 };
 
 export const makeVote = async (req, res) => {
-  const { user_id } = req.user.user_id;
+  const user_id = req.user.user_id;
   const { optionId } = req.body;
 
   try {
