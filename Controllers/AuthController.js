@@ -164,13 +164,6 @@ export const UserLogin = async (req, res) => {
                });
           }
 
-          //here the logic for checking super admin has to be loaded..
-          //check the role. if super admin, then check password and email matches with that of .env file
-          //then update the userId...
-          // if(user.role==SUPER_ADMIN){
-
-          // }
-
           const matchingPass = await bcrypt.compare(
                password,
                user.password_hash,
@@ -183,6 +176,14 @@ export const UserLogin = async (req, res) => {
           }
 
           let student = null;
+          //here the logic for checking super admin has to be loaded..
+          //check the role. if super admin, then check password and email matches with that of .env file
+          //then update the userId...
+          // if (user.role == SUPER_ADMIN) {
+          //      try {
+          //           superAdminValidation(email, password);
+          //      } catch (error) {}
+          // } else
           if (user.role === "STUDENT") {
                try {
                     student = await getStudentData(user.user_id);
@@ -239,6 +240,15 @@ export const UserLogin = async (req, res) => {
           });
      }
 };
+
+// async function superAdminValidation(email, password) {
+//      if (
+//           process.env.SUPER_ADMIN_EMAIL === email &&
+//           process.env.SUPER_ADMIN_PASSWORD === password
+//      ) {
+//           await supabase.from("users")
+//      }
+// }
 
 export const UserLogout = (req, res) => {
      res.clearCookie("refreshToken", {
@@ -413,4 +423,56 @@ export const RefreshToken = async (req, res) => {
           }
           return clearAndFail(401, "Invalid refresh token");
      }
+};
+
+//the strrength of new password isnt checked here,
+//i think its better to check in the frontend and then pass the new password.
+export const updatePassword = async (req, res) => {
+     const { currentPassword, newPassword } = req.body;
+     const userId = req.user.user_id;
+
+     const { data: userPassword, error: fetchingUserError } = await supabase
+          .from("users")
+          .select("password_hash")
+          .eq("user_id", userId)
+          .single();
+     if (fetchingUserError) {
+          return res.status(500).json({
+               message:
+                    "Couldnt confirm old password, internal error: " +
+                    fetchingUserError.message,
+          });
+     }
+
+     const correctPassword = await bcrypt.compare(
+          currentPassword,
+          userPassword.password_hash,
+     );
+     //checking if the current password matches or not!
+     if (!correctPassword) {
+          return res.status(400).json({
+               message: "The current password is incorrect",
+               success: false,
+          });
+     }
+     //hashing the new password to store in the db
+     const newPasswordHashed = await bcrypt.hash(newPassword, 12);
+
+     //stores the password into db
+     const { error: passwordUpdatingError } = await supabase
+          .from("users")
+          .update({ password_hash: newPasswordHashed })
+          .eq("user_id", userId);
+
+     if (passwordUpdatingError) {
+          return res.status(500).json({
+               message: "Internal error: " + passwordUpdatingError.message,
+               success: false,
+          });
+     }
+
+     return res.status(200).json({
+          message: "Password Updated succesfully",
+          success: true,
+     });
 };

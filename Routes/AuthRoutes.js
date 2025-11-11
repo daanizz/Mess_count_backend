@@ -9,6 +9,7 @@ import {
      RefreshToken,
      GetRole,
      CreateUser,
+     updatePassword,
 } from "../Controllers/AuthController.js";
 import { getQr } from "../Controllers/StudentFunctions.js";
 import { hostels, scanQr } from "../Controllers/StaffFunctions.js";
@@ -45,5 +46,6 @@ router.post("/scanQr", verify, scanQr);
 router.get("/get-role", verify, GetRole);
 router.post("/refresh-token", RefreshToken);
 router.get("/hostels", verify, hostels);
+router.post("/profiles/passwords", verify, updatePassword);
 
 export default router;

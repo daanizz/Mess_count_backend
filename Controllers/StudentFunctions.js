@@ -196,7 +196,7 @@ export const createPoll = async (req, res) => {
 };
 
 export const makeVote = async (req, res) => {
-     const { user_id } = req.user.user_id;
+     const user_id = req.user.user_id;
      const { optionId } = req.body;
 
      try {
@@ -206,11 +206,51 @@ export const makeVote = async (req, res) => {
                     success: false,
                });
           }
-          const { data: polled, error: checkingDbError } = await supabase
+          //getting the poll options_id[] that this user have made
+          const { data: userPolls, error: checkingVotesError } = await supabase
                .from("votes")
-               .select("id")
-               .eq("student_id", user_id)
-               .eq("option_id");
+               .select("option_id")
+               .eq("student_id", user_id);
+          if (checkingVotesError) {
+               return res.status(500).json({
+                    message: "Internal error: " + checkingVotesError.message,
+               });
+          }
+
+          //getting the poll_id of the option that is going to vote by user
+          const { data: poll, error: checkingPollOptionsError } = await supabase
+               .from("poll_options")
+               .select("poll_id")
+               .eq("id", optionId)
+               .single();
+
+          if (checkingPollOptionsError) {
+               return res.status(500).json({
+                    message:
+                         "Internal error: " + checkingPollOptionsError.message,
+               });
+          }
+          //check the option_id[] of the user do already has the poll_id - to avoid duplicate voting!
+          let validVote = true;
+          await Promise.all(
+               userPolls.map(async (option, key) => {
+                    const { data: pollId } = await supabase
+                         .from("poll_options")
+                         .select("poll_id")
+                         .eq("id", option.option_id)
+                         .maybeSingle();
+                    if (poll.poll_id === pollId.poll_id) {
+                         validVote = false;
+                    }
+               }),
+          );
+
+          if (!validVote) {
+               return res
+                    .status(400)
+                    .json({ message: "Cant vote twice!!", success: false });
+          }
+
           const { error: addingVoteError } = await supabase
                .from("votes")
                .insert({ student_id: user_id, option_id: optionId });
