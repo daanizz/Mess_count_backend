@@ -32,6 +32,5 @@ router.get("/hostels", verify, hostels);
 router.get("/count/:id", verify, getMealCount);
 router.post("/polls", verify, createPoll);
 router.get("/polls", verify, viewCurrentPolls);
-router.post("/polls/vote", verify, makeVote);
 
 export default router;

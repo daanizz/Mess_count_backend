@@ -164,6 +164,13 @@ export const UserLogin = async (req, res) => {
                });
           }
 
+          //here the logic for checking super admin has to be loaded..
+          //check the role. if super admin, then check password and email matches with that of .env file
+          //then update the userId...
+          // if(user.role==SUPER_ADMIN){
+
+          // }
+
           const matchingPass = await bcrypt.compare(
                password,
                user.password_hash,
@@ -176,15 +183,7 @@ export const UserLogin = async (req, res) => {
           }
 
           let student = null;
-          //here the logic for checking super admin has to be loaded..
-          //check the role. if super admin, then check password and email matches with that of .env file
-          //then update the userId...
-          // if (user.role == SUPER_ADMIN) {
-          //      try {
-          //           superAdminValidation(email, password);
-          //      } catch (error) {}
-          // } else
-          if (user.role === "STUDENT") {
+          if (user.role === "STUDENT" || user.role === "STUDENT_REP") {
                try {
                     student = await getStudentData(user.user_id);
                } catch (studentError) {
@@ -289,7 +288,7 @@ export const GetRole = async (req, res) => {
           }
 
           let student = null;
-          if (user.role === "STUDENT") {
+          if (user.role === "STUDENT" || user.role === "STUDENT_REP") {
                try {
                     student = await getStudentData(user_id);
                } catch (studentError) {
@@ -368,7 +367,7 @@ export const RefreshToken = async (req, res) => {
           }
 
           let student = null;
-          if (user.role === "STUDENT") {
+          if (user.role === "STUDENT" || user.role === "STUDENT_REP") {
                try {
                     student = await getStudentData(user_id);
                } catch (studentError) {

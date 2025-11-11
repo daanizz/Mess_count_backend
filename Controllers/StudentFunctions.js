@@ -306,3 +306,43 @@ export const viewCurrentPolls = async (req, res) => {
 
      return res.status(200).json({ pollData, success: true });
 };
+
+export const MyMeals = async (req, res) => {
+     try {
+          const user_id = req.user.user_id;
+
+          const startOfDay = new Date();
+          startOfDay.setHours(0, 0, 0, 0);
+          const endOfDay = new Date();
+          endOfDay.setHours(23, 59, 59, 999);
+
+          const { data, error } = await supabase
+               .from("meal_logs")
+               .select(
+                    `
+        time_stamp,
+        meals ( meal_type )
+      `,
+               )
+               .eq("student_id", user_id)
+               .gte("time_stamp", startOfDay.toISOString())
+               .lte("time_stamp", endOfDay.toISOString())
+               .order("time_stamp", { ascending: false });
+
+          if (error) throw error;
+
+          const formattedMeals = data.map((log) => ({
+               meal_type: log.meals?.meal_type || "Unknown",
+               time: log.time_stamp,
+          }));
+
+          res.status(200).json({
+               success: true,
+               message: "Today's meals fetched successfully",
+               meals: formattedMeals,
+          });
+     } catch (error) {
+          console.error("Error fetching today's meals:", error);
+          res.status(500).json({ success: false, error: error.message });
+     }
+};
