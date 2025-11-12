@@ -30,7 +30,13 @@ router.post("/qrcode", verify, getQr);
 router.post("/scan-qr", verify, scanQr);
 router.get("/hostels", verify, hostels);
 router.get("/count/:id", verify, getMealCount);
+
 router.post("/polls", verify, createPoll);
 router.get("/polls", verify, viewCurrentPolls);
+router.post("/polls/vote", verify, makeVote);
 
+// router.post("/addpolls", verify, createPoll);
+// router.get("/mymeals", verify, MyMeals);
+// router.post("/vote", verify, makeVote);
+// router.post("/getpolls", verify, viewCurrentPolls);
 export default router;
