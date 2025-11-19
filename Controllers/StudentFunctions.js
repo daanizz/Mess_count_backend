@@ -230,6 +230,18 @@ export const makeVote = async (req, res) => {
                          "Internal error: " + checkingPollOptionsError.message,
                });
           }
+          //check the validity: Expired or not about the poll..
+          //dont know whether to add this. just for extra safety(the UI will not have any expired poll to vote)
+          // const { data: notExpired, error: gettingPollDetailError } =
+          //      await supabase.from("polls").select().eq("id", optionId);
+          // if (gettingPollDetailError) {
+          //      return res
+          //           .status(500)
+          //           .json({ message: "Database error", success: false });
+          // }
+
+          // if (!notExpired) {
+          // }
           //check the option_id[] of the user do already has the poll_id - to avoid duplicate voting!
           let validVote = true;
           await Promise.all(

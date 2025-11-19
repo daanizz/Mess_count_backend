@@ -4,7 +4,8 @@ import bcrypt from "bcrypt";
 
 export const addNewBatch = async (req, res) => {
      //this function is note there in frontend
-     //the admin cehck is done, now the token contains the admin data and is verified..now just update the variable names , instead keep the real one.. as payload is taken from the middleware itself.
+     //the admin cehck is done, now the token contains the admin data and is verified..now just update the variable names ,
+     //instead keep the real one.. as payload is taken from the middleware itself.
      try {
           const { adminId, expiry_date } = req.body;
           if (!adminId || !expiry_date) {
@@ -107,7 +108,7 @@ export const addStudents = async (req, res) => {
                room: row.ROOM,
           }));
 
-          console.log(stdData.slice(1, 10));
+          // console.log(stdData.slice(1, 10));
 
           const { error: studentAdditionError } = await supabase
                .from("students")
@@ -201,15 +202,68 @@ export const addHostelRep = async (req, res) => {
                });
           }
 
-          return res
-               .status(200)
-               .json({
-                    message: `Student rep for hostel added succesfully`,
-                    success: true,
-               });
+          return res.status(200).json({
+               message: `Student rep for hostel added succesfully`,
+               success: true,
+          });
      } catch (error) {
           return res
                .status(500)
                .json({ message: "Internal server error:" + error });
+     }
+};
+
+//remove rep-done
+//remove student
+//remove batch
+
+export const removeRep = async (req, res) => {
+     try {
+          const roleOfStudentRep = "STUDENT_REP";
+          const { id } = req.params;
+          //check wehther the student is rep or not first
+          const { data: Rep, error: gettingRepError } = await supabase
+               .from("users")
+               .select("role")
+               .eq("user_id", id)
+               .single();
+          if (gettingRepError) {
+               return res.status(500).json({
+                    message:
+                         "Internal error occured or user doesn't exist, pls try again. error: " +
+                         gettingRepError.message,
+                    success: false,
+               });
+          }
+          //checking the role and confirming rep or not.
+          if (Rep.role !== roleOfStudentRep) {
+               return res.status(400).json({
+                    message: "The specified user is not a student rep, pls try again",
+               });
+          }
+          //dont jnow whether to match the rephostel and adminhostel , need to confirm
+          const { error: repUpdationError } = await supabase
+               .from("users")
+               .update({ role: "STUDENT" })
+               .eq("user_id", id);
+          if (repUpdationError) {
+               return res.status(500).json({
+                    message:
+                         "Internal error occured in updating role, pls try again. error: " +
+                         repUpdationError.message,
+                    success: false,
+               });
+          }
+
+          return res
+               .status(204)
+               .json({ message: "Updated succesfully", success: true });
+     } catch (error) {
+          return res.status(500).json({
+               message:
+                    "Internal error occured in updating role, pls try again. error: " +
+                    error.message,
+               success: false,
+          });
      }
 };

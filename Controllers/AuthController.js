@@ -424,7 +424,9 @@ export const RefreshToken = async (req, res) => {
      }
 };
 
-//the strrength of new password isnt checked here,
+
+//The correctness of old password is checked here,
+//the strength of new password isnt checked here,
 //i think its better to check in the frontend and then pass the new password.
 export const updatePassword = async (req, res) => {
      const { currentPassword, newPassword } = req.body;

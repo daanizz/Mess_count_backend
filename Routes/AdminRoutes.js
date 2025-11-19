@@ -11,6 +11,8 @@ const router = express.Router();
 router.post("/batches", verify, adminCheck, addNewBatch);
 router.post("/students/csv", verify, adminCheck, addStudents);
 router.post("/students/rep", verify, adminCheck, addHostelRep);
+router.delete("/students", verify, adminCheck); //to delete user by user id
+router.delete("/students/:hostelid", verify, adminCheck); //to delete users from one hostel
 
 export default router;
 
