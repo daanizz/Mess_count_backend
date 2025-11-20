@@ -33,7 +33,7 @@ const VALID_ROLES = Object.freeze([
      "SUPER_ADMIN",
      "MESS_STAFF",
 ]);
-
+//there is a mistake: this function checks email and password verification through regex...actually that may not be needed here!!
 export const CreateUser = async (req, res) => {
      try {
           const { name, email, password, role } = req.body;
@@ -162,6 +162,15 @@ export const UserLogin = async (req, res) => {
                     success: false,
                     message: "Invalid credentials",
                });
+          }
+
+          if (!user.active) {
+               return res
+                    .status(401)
+                    .json({
+                         message: "The user is no longer a member of any hostel",
+                         success: false,
+                    });
           }
 
           //here the logic for checking super admin has to be loaded..
@@ -423,7 +432,6 @@ export const RefreshToken = async (req, res) => {
           return clearAndFail(401, "Invalid refresh token");
      }
 };
-
 
 //The correctness of old password is checked here,
 //the strength of new password isnt checked here,
