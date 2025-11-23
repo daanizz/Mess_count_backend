@@ -111,7 +111,9 @@ export const getUserVotes = async (req, res) => {
       .select(
         `
         option_id,
-        poll_options!inner(poll_id)
+        poll_options (
+          poll_id
+        )
       `
       )
       .eq("student_id", user_id);
@@ -150,20 +152,20 @@ export const getUserVotes = async (req, res) => {
 export const createPoll = async (req, res) => {
   const user_id = req.user.user_id;
   try {
-    const { data: studentRep, error: studentRepfetchingError } = await supabase
-      .from("hostel_reps")
-      .select("student_id")
-      .eq("student_id", user_id)
-      .single();
+    // const { data: studentRep, error: studentRepfetchingError } = await supabase
+    //   .from("hostel_reps")
+    //   .select("student_id")
+    //   .eq("student_id", user_id)
+    //   .single();
 
-    if (studentRepfetchingError) {
-      return res.status(400).json({
-        message:
-          "Error occured while fetching from database:" +
-          studentRepfetchingError.message,
-        success: false,
-      });
-    }
+    // if (studentRepfetchingError) {
+    //   return res.status(400).json({
+    //     message:
+    //       "Error occured while fetching from database:" +
+    //       studentRepfetchingError.message,
+    //     success: false,
+    //   });
+    // }
     const { pollData, end_time } = req.body;
 
     const { data: hostel, error: getHostelError } = await supabase
@@ -338,7 +340,7 @@ export const viewCurrentPolls = async (req, res) => {
     .from("polls")
     .select("*")
     .eq("hostel_id", hostel_id)
-    .lt("end_time", currentTime);
+    .gt("end_time", currentTime);
   if (pollRetreivingError) {
     return res.status(400).json({
       message: "Error in getting polls: " + pollRetreivingError.message,
