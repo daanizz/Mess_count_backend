@@ -5,41 +5,48 @@ import supabase from "../Configurations/dbConnection.js";
 dotenv.config();
 
 export async function verify(req, res, next) {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader?.split(" ")[1];
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: "Access token missing!",
-    });
-  }
+  try {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader?.split(" ")[1];
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, payload) => {
-    if (err) {
+    if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Invalid or expired token!",
+        message: "Access token missing!",
       });
     }
+
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+
     req.user = payload;
-  });
-  const { data: user, error: idGettingError } = await supabase
-    .from("users")
-    .select("active")
-    .eq("user_id", payload.user_id)
-    .single();
-  if (idGettingError) {
-    return res
-      .status(404)
-      .json({ message: "Couldnt find any user!!", success: false });
-  }
-  if (!user.active) {
+
+    const { data: user, error: idGettingError } = await supabase
+      .from("users")
+      .select("active")
+      .eq("user_id", payload.user_id)
+      .single();
+
+    if (idGettingError) {
+      return res.status(404).json({
+        message: "Couldnt find any user!!",
+        success: false,
+      });
+    }
+
+    if (!user.active) {
+      return res.status(401).json({
+        message: "The user is no longer a member of any hostel",
+        success: false,
+      });
+    }
+    next();
+  } catch (err) {
+    console.error("JWT verify error:", err.message);
     return res.status(401).json({
-      message: "The user is no longer a member of any hostel",
       success: false,
+      message: "Invalid or expired token!",
     });
   }
-  next();
 }
 
 export async function adminCheck(req, res, next) {

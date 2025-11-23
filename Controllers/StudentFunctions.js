@@ -1,6 +1,7 @@
 import supabase from "../Configurations/dbConnection.js";
 import CryptoJS from "crypto-js";
 import { verify } from "../middleware/verify.js";
+import { SendNotification } from "./PushController.js";
 
 export const getQr = async (req, res) => {
   try {
@@ -102,6 +103,45 @@ export const getQr = async (req, res) => {
   }
 };
 
+export const getUserVotes = async (req, res) => {
+  const user_id = req.user.user_id;
+  try {
+    const { data: votes, error: votesError } = await supabase
+      .from("votes")
+      .select(
+        `
+        option_id,
+        poll_options!inner(poll_id)
+      `
+      )
+      .eq("student_id", user_id);
+    if (votesError) {
+      console.error("Error fetching user votes:", votesError);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch votes",
+      });
+    }
+    const votesMap = votes.reduce((acc, vote) => {
+      acc[vote.poll_options.poll_id] = vote.option_id;
+      return acc;
+    }, {});
+    return res.status(200).json({
+      success: true,
+      votes: votes.map((vote) => ({
+        poll_id: vote.poll_options.poll_id,
+        option_id: vote.option_id,
+      })),
+    });
+  } catch (error) {
+    console.error("Get user votes error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
 //recieves pollData(contains: {title,options:[text]}),student rep id(user_id),hostel_id,end_time from frontend
 //checks whether student rep is valid or not
 //creates a poll,and stores the poll id
@@ -175,6 +215,21 @@ export const createPoll = async (req, res) => {
       });
     }
 
+    const { data: students, error: studentsError } = await supabase
+      .from("students")
+      .select("user_id")
+      .eq("hostel_id", hostel.hostel_id);
+    if (!studentsError && students && students.length > 0) {
+      const notifications = students.map((student) =>
+        SendNotification(
+          student.user_id,
+          "New Poll Created",
+          `A new poll "${pollData.title}" has been created by your rep. Please check the app to vote!`
+        )
+      );
+      await Promise.all(notifications);
+    }
+
     return res.status(200).json({
       message: "Created the poll successfully..",
       success: true,
@@ -233,26 +288,32 @@ export const makeVote = async (req, res) => {
     // if (!notExpired) {
     // }
     //check the option_id[] of the user do already has the poll_id - to avoid duplicate voting!
-    let validVote = true;
-    await Promise.all(
-      userPolls.map(async (option, key) => {
-        const { data: pollId } = await supabase
-          .from("poll_options")
-          .select("poll_id")
-          .eq("id", option.option_id)
-          .maybeSingle();
-        if (poll.poll_id === pollId.poll_id) {
-          validVote = false;
-        }
-      })
-    );
 
-    if (!validVote) {
-      return res
-        .status(400)
-        .json({ message: "Cant vote twice!!", success: false });
+    let oldVoteOptionId = null;
+    for (const userVote of userPolls) {
+      const { data: userVotePoll } = await supabase
+        .from("poll_options")
+        .select("poll_id")
+        .eq("id", userVote.option_id)
+        .maybeSingle();
+      if (userVotePoll && userVotePoll.poll_id === poll.poll_id) {
+        oldVoteOptionId = userVote.option_id;
+        break;
+      }
     }
-
+    if (oldVoteOptionId) {
+      const { error: deleteError } = await supabase
+        .from("votes")
+        .delete()
+        .eq("student_id", user_id)
+        .eq("option_id", oldVoteOptionId);
+      if (deleteError) {
+        return res.status(500).json({
+          message: "Error updating vote: " + deleteError.message,
+          success: false,
+        });
+      }
+    }
     const { error: addingVoteError } = await supabase
       .from("votes")
       .insert({ student_id: user_id, option_id: optionId });
@@ -261,7 +322,9 @@ export const makeVote = async (req, res) => {
         message: "error in making vote" + addingVoteError,
       });
     }
-    return res.status(200).json({ message: "Marked the vote", success: true });
+    return res
+      .status(200)
+      .json({ message: "Vote updated successfully", success: true });
   } catch (error) {
     return res.status(500).json({ message: error });
   }
