@@ -215,7 +215,8 @@ export const addHostelRep = async (req, res) => {
 
 //remove rep-done
 //remove student
-//remove batch
+//remove batch- not needed
+//view counts
 
 export const removeRep = async (req, res) => {
      try {
@@ -266,4 +267,11 @@ export const removeRep = async (req, res) => {
                success: false,
           });
      }
+};
+
+export const removeStudent = async (req, res) => {
+     const studentId = req.params.id;
+     const studentEmail = req.body;
+
+     //delete form subscriptions, polls ,hostelreps then students,
 };

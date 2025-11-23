@@ -4,7 +4,7 @@ import supabase from "../Configurations/dbConnection.js";
 
 dotenv.config();
 
-export function verify(req, res, next) {
+export async function verify(req, res, next) {
      const authHeader = req.headers["authorization"];
      const token = authHeader?.split(" ")[1];
      if (!token) {
@@ -22,8 +22,24 @@ export function verify(req, res, next) {
                });
           }
           req.user = payload;
-          next();
      });
+     const { data: user, error: idGettingError } = await supabase
+          .from("users")
+          .select("active")
+          .eq("user_id", payload.user_id)
+          .single();
+     if (idGettingError) {
+          return res
+               .status(404)
+               .json({ message: "Couldnt find any user!!", success: false });
+     }
+     if (!user.active) {
+          return res.status(401).json({
+               message: "The user is no longer a member of any hostel",
+               success: false,
+          });
+     }
+     next();
 }
 
 export async function adminCheck(req, res, next) {
