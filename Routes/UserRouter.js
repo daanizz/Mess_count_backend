@@ -6,6 +6,8 @@ import {
   makeVote,
   viewCurrentPolls,
   getUserVotes,
+  getPollResults,
+  getPollVoters,
 } from "../Controllers/StudentFunctions.js";
 import {
   scanQr,
@@ -27,6 +29,8 @@ router.post("/getpolls", verify, viewCurrentPolls);
 router.post("/polls/vote", verify, makeVote);
 router.get("/myvotes", verify, getUserVotes);
 router.post("/addpolls", verify, createPoll);
+router.get("/polls/results", verify, getPollResults);
+router.get("/polls/:poll_id/voters", verify, getPollVoters);
 // router.get("/mymeals", verify, MyMeals);
 
 export default router;

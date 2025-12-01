@@ -410,3 +410,201 @@ export const MyMeals = async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+export const getPollResults = async (req, res) => {
+  try {
+    const user_id = req.user.user_id;
+
+    const { data: student, error: studentError } = await supabase
+      .from("students")
+      .select("hostel_id")
+      .eq("user_id", user_id)
+      .single();
+
+    if (studentError || !student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
+
+    const hostel_id = student.hostel_id;
+
+    const { data: polls, error: pollsError } = await supabase
+      .from("polls")
+      .select("*")
+      .eq("created_by", user_id)
+      .eq("hostel_id", hostel_id)
+      .order("created_at", { ascending: false });
+
+    if (pollsError) {
+      return res.status(500).json({
+        success: false,
+        message: "Error fetching polls: " + pollsError.message,
+      });
+    }
+
+    const pollResults = await Promise.all(
+      polls.map(async (poll) => {
+        const { data: options, error: optionsError } = await supabase
+          .from("poll_options")
+          .select("id, text")
+          .eq("poll_id", poll.id);
+
+        if (optionsError) {
+          console.error("Error fetching options:", optionsError);
+          return null;
+        }
+
+        const optionsWithVotes = await Promise.all(
+          options.map(async (option) => {
+            const { data: votes, error: votesError } = await supabase
+              .from("votes")
+              .select(
+                `
+                student_id,
+                students (
+                  user_id,
+                  admission_no,
+                  room,
+                  users (
+                    name,
+                    email
+                  )
+                )
+              `
+              )
+              .eq("option_id", option.id);
+
+            if (votesError) {
+              console.error("Error fetching votes:", votesError);
+              return { ...option, votes: 0, voters: [] };
+            }
+
+            const voters = votes.map((vote) => ({
+              user_id: vote.students.user_id,
+              name: vote.students.users.name,
+              email: vote.students.users.email,
+              admission_no: vote.students.admission_no,
+              room: vote.students.room,
+            }));
+
+            return {
+              ...option,
+              votes: votes.length,
+              voters,
+            };
+          })
+        );
+
+        const totalVotes = optionsWithVotes.reduce(
+          (sum, opt) => sum + opt.votes,
+          0
+        );
+        const isExpired = new Date(poll.end_time) < new Date();
+
+        return {
+          ...poll,
+          options: optionsWithVotes,
+          totalVotes,
+          isExpired,
+        };
+      })
+    );
+
+    const validResults = pollResults.filter((result) => result !== null);
+
+    return res.status(200).json({
+      success: true,
+      polls: validResults,
+    });
+  } catch (error) {
+    console.error("Error fetching poll results:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error: " + error.message,
+    });
+  }
+};
+
+export const getPollVoters = async (req, res) => {
+  try {
+    const user_id = req.user.user_id;
+    const { poll_id } = req.params;
+
+    const { data: poll, error: pollError } = await supabase
+      .from("polls")
+      .select("id, created_by, title")
+      .eq("id", poll_id)
+      .eq("created_by", user_id)
+      .single();
+
+    if (pollError || !poll) {
+      return res.status(404).json({
+        success: false,
+        message: "Poll not found or unauthorized",
+      });
+    }
+
+    const { data: options, error: optionsError } = await supabase
+      .from("poll_options")
+      .select("id, text")
+      .eq("poll_id", poll_id);
+
+    if (optionsError) {
+      return res.status(500).json({
+        success: false,
+        message: "Error fetching options: " + optionsError.message,
+      });
+    }
+
+    const votersData = await Promise.all(
+      options.map(async (option) => {
+        const { data: votes, error: votesError } = await supabase
+          .from("votes")
+          .select(
+            `
+            student_id,
+            students (
+              user_id,
+              admission_no,
+              room,
+              users (
+                name,
+                email
+              )
+            )
+          `
+          )
+          .eq("option_id", option.id);
+
+        if (votesError) {
+          console.error("Error fetching votes:", votesError);
+          return [];
+        }
+
+        return votes.map((vote) => ({
+          name: vote.students.users.name,
+          email: vote.students.users.email,
+          admission_no: vote.students.admission_no,
+          room: vote.students.room,
+          voted_for: option.text,
+        }));
+      })
+    );
+
+    const allVoters = votersData.flat();
+
+    return res.status(200).json({
+      success: true,
+      poll_title: poll.title,
+      voters: allVoters,
+    });
+  } catch (error) {
+    console.error("Error fetching poll voters:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error: " + error.message,
+    });
+  }
+};
